@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+  <title>Image Viewer</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: black;
+      font-family: sans-serif;
+    }
+
+    #viewer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      touch-action: pan-y;
+    }
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .zone {
+      position: absolute;
+      top: 0;
+      width: 50%;
+      height: 100%;
+      z-index: 10;
+    }
+
+    #prev {
+      left: 0;
+    }
+
+    #next {
+      right: 0;
+    }
+
+    #page {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      background: rgba(0,0,0,0.5);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 14px;
+      z-index: 20;
+    }
+
+    #resumeBtn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 20;
+
+      border: none;
+      border-radius: 999px;
+      padding: 10px 14px;
+
+      background: rgba(255,255,255,0.15);
+      color: white;
+      backdrop-filter: blur(10px);
+
+      cursor: pointer;
+    }
+
+    #resumePopup {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      z-index: 50;
+    }
+
+    #resumeCard {
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 20px;
+      padding: 24px;
+      width: 90%;
+      max-width: 320px;
+
+      text-align: center;
+      color: white;
+    }
+
+    #resumeCard h2 {
+      margin-bottom: 10px;
+      font-size: 20px;
+    }
+
+    #resumeCard p {
+      margin-bottom: 20px;
+      color: #aaa;
+    }
+
+    .btns {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btns button {
+      flex: 1;
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .primary {
+      background: white;
+      color: black;
+    }
+
+    .secondary {
+      background: #222;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="viewer">
+
+  <img id="image" src="" />
+
+  <div id="prev" class="zone"></div>
+  <div id="next" class="zone"></div>
+
+  <div id="page"></div>
+
+  <button id="resumeBtn">
+    북마크 초기화
+  </button>
+
+  <div id="resumePopup" style="display:none;">
+    <div id="resumeCard">
+      <h2>이어보기</h2>
+      <p id="resumeText"></p>
+
+      <div class="btns">
+        <button class="secondary" id="startOver">
+          처음부터
+        </button>
+
+        <button class="primary" id="continueBtn">
+          이어보기
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // =========================
+  // 이미지 목록
+  // =========================
+
+ const chapters = {
+  chapter001: 18,
+};
+
+const pages = [];
+
+for (const chapter in chapters) {
+
+  const imageCount = chapters[chapter];
+
+  for (let i = 1; i <= imageCount; i++) {
+
+    const fileName =
+      String(i).padStart(3, "0");
+
+    pages.push(
+      `images/${chapter}/${fileName}.png`
+    );
+  }
+}
+
+  // =========================
+
+  const STORAGE_KEY = "novel_viewer_bookmark";
+
+  let currentPage = 0;
+
+  const image = document.getElementById("image");
+  const pageText = document.getElementById("page");
+
+  function renderPage() {
+    image.src = pages[currentPage];
+
+    pageText.textContent =
+      `${currentPage + 1} / ${pages.length}`;
+
+    localStorage.setItem(STORAGE_KEY, currentPage);
+  }
+
+  function nextPage() {
+    if (currentPage < pages.length - 1) {
+      currentPage++;
+      renderPage();
+    }
+  }
+
+  function prevPage() {
+    if (currentPage > 0) {
+      currentPage--;
+      renderPage();
+    }
+  }
+
+  // =========================
+  // 클릭 이동
+  // =========================
+
+  document.getElementById("next")
+    .addEventListener("click", nextPage);
+
+  document.getElementById("prev")
+    .addEventListener("click", prevPage);
+
+  // =========================
+  // 키보드 이동
+  // =========================
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") nextPage();
+    if (e.key === "ArrowLeft") prevPage();
+  });
+
+  // =========================
+  // 모바일 스와이프
+  // =========================
+
+  let touchStartX = 0;
+  let touchEndX = 0;
+
+  window.addEventListener("touchstart", (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+  });
+
+  window.addEventListener("touchend", (e) => {
+    touchEndX = e.changedTouches[0].screenX;
+
+    const diff = touchEndX - touchStartX;
+
+    if (Math.abs(diff) > 50) {
+      if (diff < 0) {
+        nextPage();
+      } else {
+        prevPage();
+      }
+    }
+  });
+
+  // =========================
+  // 이어보기
+  // =========================
+
+  const savedPage =
+    localStorage.getItem(STORAGE_KEY);
+
+  const popup =
+    document.getElementById("resumePopup");
+
+  if (savedPage !== null && Number(savedPage) > 0) {
+
+    popup.style.display = "flex";
+
+    document.getElementById("resumeText")
+      .textContent =
+      `${Number(savedPage) + 1} 페이지부터 이어서 볼까?`;
+
+    document.getElementById("continueBtn")
+      .onclick = () => {
+
+      currentPage = Number(savedPage);
+
+      renderPage();
+
+      popup.style.display = "none";
+    };
+
+    document.getElementById("startOver")
+      .onclick = () => {
+
+      currentPage = 0;
+
+      renderPage();
+
+      popup.style.display = "none";
+    };
+
+  } else {
+    renderPage();
+  }
+
+  // =========================
+  // 북마크 초기화
+  // =========================
+
+  document.getElementById("resumeBtn")
+    .onclick = () => {
+
+    localStorage.removeItem(STORAGE_KEY);
+
+    alert("북마크가 초기화됐어.");
+  };
+
+</script>
+
+</body>
+</html>
